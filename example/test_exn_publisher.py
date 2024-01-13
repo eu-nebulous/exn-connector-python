@@ -1,5 +1,15 @@
+
+import sys
+
+from exn.core.publisher import Publisher
+from exn.handler.connector_handler import ConnectorHandler
+
+sys.path.insert(0,'../exn')
+
 import logging
-import time
+
+from dotenv import load_dotenv
+load_dotenv()
 
 from exn import connector, core
 
@@ -7,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logging.getLogger('exn.connector').setLevel(logging.DEBUG)
 
 
-class MyHandler(connector.ConnectorHandler):
+class Bootstrap(ConnectorHandler):
 
     def ready(self, context):
         if context.has_publisher('state'):
@@ -19,33 +29,39 @@ class MyHandler(connector.ConnectorHandler):
 
         context.publishers['config'].send({
             'hello': 'world'
-        })
-        context.publishers['preferences'].send()
+        },application="one")
+
+        context.publishers['config'].send({
+            'good': 'bye'
+        },application="two")
+
+        if context.has_publisher('preferences'):
+            context.publishers['preferences'].send()
 
 
-class MyPublisher(core.publisher.Publisher):
+class MyPublisher(Publisher):
+
     def __init__(self):
-        super().__init__('preferences', 'preferences.changed', True)
+        super().__init__( 'preferences', 'preferences', topic=True)
 
-    def send(self, body={}):
-        body.update({
+    def send(self):
+        super(MyPublisher, self).send({
             "preferences": {
                 "dark_mode": True
             }
         })
-        super(MyPublisher, self).send(body)
 
 
-connector = connector.EXN('ui', handler=MyHandler()
+connector = connector.EXN('ui', handler=Bootstrap()
                           , publishers=[
         core.publisher.Publisher('config', 'config', True),
-        MyPublisher(),
+        MyPublisher()
     ],
-                          enable_health=True, enable_state=False
-                          ,url='localhost'
-                          ,port=5672
-                          ,username="admin"
-                          ,password="adming"
-                          )
+          enable_health=True, enable_state=True
+          ,url='localhost'
+          ,port=5672
+          ,username="admin"
+          ,password="admin"
+          )
 
 connector.start()

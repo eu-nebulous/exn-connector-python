@@ -1,27 +1,64 @@
+import sys
+sys.path.insert(0,'../exn')
+
+
 import logging
 
-from exn import connector, core
+from dotenv import load_dotenv
+load_dotenv()
+
+from proton import Message
+from exn.connector import EXN
+from exn.core.consumer import Consumer
+from exn.core.context import Context
+from exn.core.handler import Handler
+from exn.handler.connector_handler import ConnectorHandler
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logging.getLogger('exn.connector').setLevel(logging.DEBUG)
 
 
-class Bootstrap(connector.ConnectorHandler):
-
-    def on_message(self, key, address, body, context, **kwargs):
-        logging.info(f"Received {key} => {address}")
-        if key == 'ui_health':
-            logging.info(f"I am healthy => {body}")
-
-        if key == 'ui_all':
-            logging.info(f"These are my preferences => {body}")
+class MyGeneralHandler(Handler):
+    def on_message(self, key, address, body, message: Message, context=None):
+        logging.info(f"[MyGeneralHandler] Received {key} => {address}: {body}")
 
 
-connector = connector.EXN('ui', handler=Bootstrap(),
+class Bootstrap(ConnectorHandler):
+    context = None
+
+    def ready(self, context: Context):
+        self.context = context
+        # do work here
+
+        self.context.register_consumers(
+            Consumer('ui_health', 'health', handler=my_general_handler, topic=True)
+        )
+
+
+class MyConfigHandler(Handler):
+    def on_message(self, key, address, body, message: Message, context=None):
+        logging.info(f"[MyConfigHandler{self}] Received {key} => {address}: {body}")
+
+
+my_general_handler = MyGeneralHandler()
+
+connector = EXN('ui', handler=Bootstrap(),
                           consumers=[
-                              core.consumer.Consumer('ui_health', 'health', topic=True),
-                              core.consumer.Consumer('ui_all', 'eu.nebulouscloud.ui.preferences.>', topic=True,
-                                                     fqdn=True)
+                              Consumer('ui_all', 'eu.nebulouscloud.ui.preferences.>',
+                                                     handler=my_general_handler,
+                                                     topic=True,
+                                                     fqdn=True),
+                              Consumer('config_two', 'config',
+                                                     handler=MyConfigHandler(),
+                                                     application="two",
+                                                     topic=True,
+                                                     ),
+                              Consumer('config_one', 'config',
+                                                     handler=MyConfigHandler(),
+                                                     application="one",
+                                                     topic=True,
+                                                     ),
+
                           ])
 
 connector.start()
