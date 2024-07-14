@@ -23,7 +23,6 @@ class Context:
 
     def start(self, manager:Manager, handler):
         self._manager = manager
-
         def on_ready():
             _logger.debug("[context] on_ready" )
             for key,publisher in self.publishers.items():
