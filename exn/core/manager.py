@@ -79,10 +79,12 @@ class Manager(MessagingHandler):
         if hasattr(publisher, "reply_address"):
             _logger.info(f"[manager] starting Synced consumer for  {publisher.key} => {publisher.reply_address}")
             def on_my_message(self, key, address, body, message: Message, context=None):
-                _logger.info(f"[{publisher.key}] handler received  {key} => {message.correlation_id}")
+                _logger.info(f"[manager]  [{publisher.key}] handler received  {key} => {message.correlation_id}")
                 if publisher.match_correlation_id(message.correlation_id):
-                    _logger.info(f"[{publisher.key}] handler received {key} / matched => response {body} ")
+                    _logger.info(f"[manager]  [{publisher.key}] handler received  {key} => {message.correlation_id} matched => {body}")
                     publisher._replied = body
+                else:
+                    _logger.warning(f"[manager]  [{publisher.key}] handler received  {key} => {message.correlation_id} *NOT MATCHED*")
 
             r_handler = Handler()
             r_handler.on_message= types.MethodType(on_my_message,r_handler)
